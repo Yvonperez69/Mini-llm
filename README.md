@@ -1,4 +1,19 @@
-🔹 Hyperparamètres raisonnables (trainable sur machine perso)
+Structure du projet
+
+/model :
+    attention.py
+    feedforward.py
+    block.py
+    transformer.py
+
+/tokenizer
+
+train.py
+generate.py
+config.py
+
+
+Hyperparamètres raisonnables (trainable sur machine perso)
 vocab_size ≈ 8k–16k
 context_length = 256
 d_model = 256
