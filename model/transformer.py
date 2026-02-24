@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn 
 import math
+from block import TransformerBlock
 
 class PositionalEmbidding(nn.Module):
     def __init__(self, d_model, max_len = 2048):
@@ -19,3 +20,26 @@ class PositionalEmbidding(nn.Module):
     def forward(self, x):
         T = x.size(1)
         return x + self.pe[:,:T,:]
+
+class TokenEmbedding(nn.Module):
+    def __init__(self, vocab_size, d_model):
+        super().__init__()
+        self.token_emb = nn.Embedding(vocab_size, d_model)
+
+    def forward(self, x):
+        return self.token_emb(x)
+
+class Transformer(nn.Module):
+    def __init__(self, vocab_size, d_model, n_head, n_layers, d_ff = None, dropout = 0.1):
+        super().__init__()
+
+        self.token_emb = TokenEmbedding(vocab_size, d_model)
+        self.pos_emb = PositionalEmbidding(d_model)
+        self.layers = nn.ModuleList([TransformerBlock(d_model, n_head, d_ff, dropout) for _ in range(n_layers)])
+
+    def forward(self, x):
+        x = self.token_emb(x)
+        x = self.pos_emb(x)
+        for layer in self.layers:
+            x = layer(x)
+        return x
