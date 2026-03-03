@@ -27,8 +27,8 @@ class MultiHeadAttention(nn.Module):
         v = self.v_proj(x)
 
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1,2)
-        v = q.view(B, T, self.n_head, self.head_dim).transpose(1,2)
-        k = q.view(B, T, self.n_head, self.head_dim).transpose(1,2)
+        v = v.view(B, T, self.n_head, self.head_dim).transpose(1,2)
+        k = k.view(B, T, self.n_head, self.head_dim).transpose(1,2)
 
         # Scaled Dot-product Attention
 
@@ -38,7 +38,7 @@ class MultiHeadAttention(nn.Module):
         mask = torch.tril(torch.ones(T,T,device=x.device)) # matrice de taille (T,T)
         mask = mask.unsqueeze(0).unsqueeze(0) # tenseur de taille (1,1,T,T)
 
-        attention.masked_fill(mask==0, float("-inf")) # application du masque
+        attention = attention.masked_fill(mask==0, float("-inf")) # application du masque
 
         attn_proba = F.softmax(attention,dim=-1)
         attn_proba = self.dropout(attn_proba)
