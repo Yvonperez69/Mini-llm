@@ -11,8 +11,8 @@ class PositionalEmbidding(nn.Module):
         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
         div_term = torch.exp(torch.arange(0, d_model, 2, dtype=float)*(-math.log(10000.0))/d_model)
         
-        pe[:,0::2] = math.sin(position*div_term)
-        pe[:,1::2] = math.cos(position*div_term)
+        pe[:,0::2] = torch.sin(position*div_term)
+        pe[:,1::2] = torch.cos(position*div_term)
 
         pe =pe.unsqueeze(0) # Broadcast pour ajouter au embeddings des tokens (B,T,d_model)
         self.register_buffer("pe", pe)
@@ -33,13 +33,28 @@ class Transformer(nn.Module):
     def __init__(self, vocab_size, d_model, n_head, n_layers, d_ff = None, dropout = 0.1):
         super().__init__()
 
+        self.dropout = nn.Dropout(dropout)
+
+        # Embeddings and positional encoding
         self.token_emb = TokenEmbedding(vocab_size, d_model)
         self.pos_emb = PositionalEmbidding(d_model)
+
+        # Transformer blocks 
         self.layers = nn.ModuleList([TransformerBlock(d_model, n_head, d_ff, dropout) for _ in range(n_layers)])
+
+        # final linear layer for output
+        self.ln_f = nn.LayerNorm(d_model)
+        self.output_layer = nn.Linear(d_model, vocab_size)
+        
 
     def forward(self, x):
         x = self.token_emb(x)
         x = self.pos_emb(x)
+        
         for layer in self.layers:
             x = layer(x)
+        
+        x = self.ln_f(x)
+        x = self.output_layer(x)
         return x
+    
