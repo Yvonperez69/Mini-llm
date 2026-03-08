@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn 
 import math
-from block import TransformerBlock
+from model.block import TransformerBlock
 
 class PositionalEmbidding(nn.Module):
     def __init__(self, d_model, max_len = 2048):
@@ -57,4 +57,3 @@ class Transformer(nn.Module):
         x = self.ln_f(x)
         x = self.output_layer(x)
         return x
-    

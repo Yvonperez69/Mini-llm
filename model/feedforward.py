@@ -9,10 +9,10 @@ class FeedForward(nn.Module):
         self.d_model = d_model
         self.d_ff = d_ff if d_ff is not None else 4 * d_model
         self.ffn = nn.Sequential(
-            nn.Linear(d_model, d_ff),
+            nn.Linear(d_model, self.d_ff),
             nn.ReLU(),
             nn.Dropout(dropout),
-            nn.Linear(d_ff, d_model)
+            nn.Linear(self.d_ff, d_model)
         )
         
     def forward(self, x):

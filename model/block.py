@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from attention import MultiHeadAttention
-from feedforward import FeedForward
+from model.attention import MultiHeadAttention
+from model.feedforward import FeedForward
 
 class TransformerBlock(nn.Module):
     def __init__(self, d_model,n_head, d_ff = None, dropout = 0.1):
@@ -24,3 +24,4 @@ class TransformerBlock(nn.Module):
         x = self.norm2(x) # layer normalization
 
         return x
+

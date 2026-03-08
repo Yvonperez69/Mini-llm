@@ -6,6 +6,9 @@ import math
 class MultiHeadAttention(nn.Module):
     def __init__(self, d_model, n_head, dropout=0.1):
         super().__init__()
+        
+        assert d_model % n_head == 0
+        
         self.d_model = d_model
         self.n_head = n_head
         self.head_dim = d_model // n_head
