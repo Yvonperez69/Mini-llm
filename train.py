@@ -3,7 +3,10 @@ import torch.nn as nn
 import torch.optim as optim
 from model.transformer import Transformer
 import matplotlib.pyplot as plt
+from tokenizer import Tokenizer
 
+with open("/Users/yvonperez/Dropbox/Mac/Documents/Info/Attention/data/input.txt", "r", encoding="utf-8") as f:
+    text = f.read()
 
 vocab_size = 5000
 d_model = 256
@@ -24,6 +27,11 @@ train = True
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
+
+tokenizer = Tokenizer()
+tokenizer.build_vocab(text=text)
+
+tokens = 
 
 def training_step(model, optimizer, idx, criterion):
     # idx : (B ,T)
