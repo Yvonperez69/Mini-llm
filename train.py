@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from model.transformer import Transformer
 import matplotlib.pyplot as plt
-from tokenizer import Tokenizer
+from tokenizers import Tokenizer
 import math
 
 with open("/Users/yvonperez/Dropbox/Mac/Documents/Info/Attention/data/input.txt", "r", encoding="utf-8") as f:
@@ -20,9 +20,12 @@ max_steps = 5000
 
 device = torch.device("cuda"  if torch.cuda.is_available() else "mps")
 
-tokenizer = Tokenizer()
-tokenizer.build_vocab(text=text)
-vocab_size = len(tokenizer.word2id)
+
+tokenizer = Tokenizer.from_file("tokenizer.json")
+encoding = tokenizer.encode(text)
+tokens = torch.tensor(encoding.ids).to(torch.long)
+vocab_size = tokenizer.get_vocab_size()
+
 
 model = Transformer(vocab_size=vocab_size, d_model=d_model, d_ff=d_ff, n_head=n_head, n_layers=n_layers).to(device)
 
@@ -31,7 +34,7 @@ train = True
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=0.01)
 
-tokens = torch.Tensor(tokenizer.encode(text=text)).to(torch.long)
+
 
 def training_step(model, optimizer, idx, criterion):
     # idx : (B ,T)
@@ -132,7 +135,6 @@ if train :
                     'n_layers': n_layers,
                     'context_length': context_length,
                     'best_val_loss' : best_val_loss,
-                    'vocab' : tokenizer.word2id,
                     'step' : step
                 }
                 torch.save(checkpoint,'/Users/yvonperez/Dropbox/Mac/Documents/Info/Attention/param/best_param.pt')

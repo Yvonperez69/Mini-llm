@@ -1,16 +1,13 @@
 import torch
-from tokenizer import Tokenizer
+from tokenizers import Tokenizer
 from model.transformer import Transformer
 
-tokenizer = Tokenizer()
+tokenizer = Tokenizer.from_file('tokenizer.json')
 
 device = torch.device("cuda"  if torch.cuda.is_available() else "mps")
 
 path = '/Users/yvonperez/Dropbox/Mac/Documents/Info/Attention/param/best_param.pt'
-checkpoint = torch.load(path)
-
-tokenizer.word2id = checkpoint['vocab']
-tokenizer.id2word = {i:w for w, i in tokenizer.word2id.items()}
+checkpoint = torch.load(path, map_location=device)
 
 vocab_size = checkpoint['vocab_size']
 d_model = checkpoint['d_model']
@@ -28,7 +25,7 @@ model.eval()
 prompt = "What is your name"
 
 
-ids = torch.Tensor(tokenizer.encode(prompt)).to(torch.long).unsqueeze(0).to(device)
+ids = torch.tensor(tokenizer.encode(prompt).ids).to(torch.long).unsqueeze(0).to(device)
 
 with torch.no_grad():
     for _ in range(max_new_tokens):
