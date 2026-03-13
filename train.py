@@ -5,9 +5,15 @@ from model.transformer import Transformer
 import matplotlib.pyplot as plt
 from tokenizers import Tokenizer
 import math
+from pathlib import Path
 
-with open("/Users/yvonperez/Dropbox/Mac/Documents/Info/Attention/data/input.txt", "r", encoding="utf-8") as f:
-    text = f.read()
+DATA_PATH = Path("/Users/yvonperez/Dropbox/Mac/Documents/Info/Attention/data/input.txt")
+TEXT_FRACTION = 0.01
+
+with open(DATA_PATH, "rb") as f:
+    text_bytes = f.read(max(1, int(DATA_PATH.stat().st_size * TEXT_FRACTION)))
+
+text = text_bytes.decode("utf-8", errors="ignore")
 
 d_model = 256
 d_ff = 4*d_model
@@ -15,8 +21,8 @@ n_head = 8
 n_layers = 6
 batch_size = 8
 context_length = 128
-lr = 5e-4
-max_steps = 5000
+lr = 3e-4
+max_steps = 30000
 
 device = torch.device("cuda"  if torch.cuda.is_available() else "mps")
 
