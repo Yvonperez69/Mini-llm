@@ -152,13 +152,10 @@ La meilleure ville de France est
 - pas de seed globale pour la reproductibilité
 - pas d'instruction tuning ni de dataset conversationnel
 
-En pratique, le modèle peut produire du texte plausible, mais ce n'est pas encore un assistant conversationnel fiable.
-
 ## Pistes d'amélioration
 
 - réduire et nettoyer davantage le corpus
 - utiliser un vocabulaire plus petit et mieux adapté
-- ajouter un vrai fallback `cpu` dans `train.py`
 - rendre l'entraînement plus robuste
 - ajouter des métriques et prompts d'évaluation fixes
 - fine-tuner ensuite sur des données instruction/chat
