@@ -7,13 +7,12 @@ class FeedForward(nn.Module):
         super().__init__()
 
         self.d_model = d_model
-        self.d_ff = d_ff if d_ff is not None else 4 * d_model
-        self.ffn = nn.Sequential(
-            nn.Linear(d_model, self.d_ff),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(self.d_ff, d_model)
-        )
+        self.d_ff = int(round((8/3 * d_model) / 64) * 64)
+        self.w1 = nn.Linear(d_model, self.d_ff)
+        self.w2 = nn.Linear(d_model, self.d_ff)
+        self.w3 = nn.Linear(self.d_ff, d_model)
+        self.SiLU = nn.SiLU()
         
     def forward(self, x):
-        return self.ffn(x)
+        x = self.w3(self.SiLU(self.w1(x))*self.w2(x))
+        return x

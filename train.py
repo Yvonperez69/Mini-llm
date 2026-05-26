@@ -59,7 +59,7 @@ def get_lr():
 def main():
     
     # 1. config
-    DATA_PATH       = Path("data/input.txt")
+    DATA_PATH       = Path("data/input_10pct.txt")
     TOKENIZER_PATH  = Path("tokenizer.json")
     CHECKPOINT_PATH = Path("param/best_param.pt")
     device          = torch.device("mps")  # M1
@@ -71,7 +71,7 @@ def main():
     n_kv_head       = 2
     context_length  = 256
     batch_size      = 16
-    max_steps       = 30000
+    max_steps       = 3
     eval_interval   = 500
     eval_iters      = 100
     log_interval    = 50
@@ -122,7 +122,7 @@ def main():
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
         optimizer.step()
-        if (step + 1) % log_interval == 0:
+        if True :# (step + 1) % log_interval == 0:
             print(f"step : {step + 1}/{max_steps} | train_loss = {loss:.4f}")
         should_eval = (step == 0) or ((step + 1) % eval_interval == 0)
         if should_eval:
