@@ -15,14 +15,10 @@ class TransformerBlock(nn.Module):
 
     def forward(self, x):
         # Multi Head Attention
-        attn_out = self.attn(x)
-        x = x + attn_out # residual connection
-        x = self(x) #RMS Norm
+        x = x + self.attn(self.norm1(x)) # residual connection et RMS Norm (pre-norm)
 
         # Feed forward
-        ffn_out = self.ffn(x)
-        x = x + ffn_out # residual connection
-        x = self.norm2(x) # RMS Norm
+        x = x + self.ffn(self.norm2(x)) # residual connection et RMS Norm (pre-norm)
 
         return x
 
