@@ -16,6 +16,13 @@ torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
 
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
 def compute_loss(model, idx, criterion):
     inputs = idx[:,:-1]
     targets = idx[:,1:]
@@ -75,16 +82,16 @@ def main():
     VAL_PATH        = Path("data/val.txt")
     TOKENIZER_PATH  = Path("tokenizer.json")
     CHECKPOINT_PATH = Path("param/best_param.pt")
-    device          = torch.device("mps")  # M1
+    device          = get_device()
 
     d_model         = 512
     d_ff            = 4*d_model
     n_layers        = 8
     n_head          = 8
     n_kv_head       = 2
-    context_length  = 128 #256
-    batch_size      = 4 #16
-    max_steps       = 3
+    context_length  = 256
+    batch_size      = 16
+    max_steps       = 5000
     eval_interval   = 500
     eval_iters      = 100
     log_interval    = 50
