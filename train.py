@@ -7,6 +7,8 @@ from tokenizers import Tokenizer
 from model.transformer import Transformer
 import random
 import numpy as np
+import csv
+from torch.utils.tensorboard import SummaryWriter
 
 SEED = 69
 
@@ -15,6 +17,15 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 if torch.cuda.is_available():
     torch.cuda.manual_seed_all(SEED)
+
+def log_metrics(log_path, step, train_loss, val_loss, lr):
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    write_header = not log_path.exists()
+    with open(log_path, "a", newline="") as f:
+        writer = csv.writer(f)
+        if write_header:
+            writer.writerow(["step", "train_loss", "val_loss", "lr"])
+        writer.writerow([step, train_loss, val_loss, lr])
 
 def get_device():
     if torch.cuda.is_available():
@@ -76,30 +87,34 @@ def get_data_iter(data_path, tokenizer, text_fraction, batch_size, context_lengt
                 buffer = buffer[batch_size*(context_length+1):]
 
 def main():
-    
+
     # 1. config
     DATA_PATH       = Path("data/train.txt")
     VAL_PATH        = Path("data/val.txt")
     TOKENIZER_PATH  = Path("tokenizer.json")
-    CHECKPOINT_PATH = Path("param/best_param.pt")
+    CHECKPOINT_PATH = Path("param/best_param_final.pt")
+    LOG_PATH        = Path("logs/metrics_final.csv") # run A = 1:1, run B = 2:1, run C = transfo pur
     device          = get_device()
+
+    writer = SummaryWriter(log_dir="runs/run_final")
 
     d_model         = 512
     d_ff            = 4*d_model
     n_layers        = 8
-    n_head          = 8
+    n_head          = 16
     n_kv_head       = 2
     context_length  = 256
     batch_size      = 16
-    max_steps       = 5000
+    max_steps       = 20000
     eval_interval   = 500
     eval_iters      = 100
     log_interval    = 50
     lr_max          = 3e-4
-    warmup_steps    = 500
+    warmup_steps    = 1000
     grad_clip       = 1.0
-    text_fraction   = 0.05
+    text_fraction   = 0.5
     best_val_loss   = math.inf
+    sca_ratio       = 1
     
     # 2. data
     tokenizer  = Tokenizer.from_file(str(TOKENIZER_PATH))
@@ -120,6 +135,7 @@ def main():
         n_head_query=n_head,
         spectral_sample=2,
         head_dim=d_model//n_head,
+        sca_ratio= sca_ratio
     ).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=lr_max, weight_decay=0.01)
@@ -149,11 +165,15 @@ def main():
         
         optimizer.step()
         if (step + 1) % log_interval == 0:
-            print(f"step : {step + 1}/{max_steps} | train_loss = {loss:.4f} | lr={lr:.2e} ")
+            writer.add_scalar("loss/train", loss.item(), step)
+            writer.add_scalar("lr", lr, step)
+
         should_eval = (step == 0) or ((step + 1) % eval_interval == 0)
+
         if should_eval:
             val_loss = compute_val_loss(model, val_iter, criterion, eval_iters)
-            print(f"step {step + 1}/{max_steps} | val_loss={val_loss:.4f}")
+            writer.add_scalar("loss/val", val_loss, step)
+            log_metrics(LOG_PATH, step+1, loss.item(), val_loss, lr)
         
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
@@ -166,6 +186,7 @@ def main():
                             "d_ff": d_ff,
                             "n_head": n_head,
                             "n_layers": n_layers,
+                            "sca_ratio": sca_ratio,
                             "context_length": context_length,
                             "best_val_loss": best_val_loss,
                             "step": step,
