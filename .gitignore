@@ -1,26 +1,26 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-build/
 
 # macOS
 .DS_Store
 
-# Data & checkpoints
-data/input.txt
-data/input_10pct.txt
-param/
-*.pt
-*.bz2
-wiki_fr.txt
-
 # VSCode
 .vscode/
 
-# Tokenizer (optionnel, à commenter si tu veux le versionner)
+# Data
+data/train.txt
+data/val.txt
+data/input.txt
+wiki_fr.txt
+
+# Checkpoints
+param/
+*.pt
+
+# Logs
+runs/
+output.txt
+
+# Tokenizer (optionnel - commenter si tu veux le versionner)
 # tokenizer.json
