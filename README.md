@@ -1,90 +1,72 @@
-# A small-scale Hybrid SCA-Transformer language model
+# A Small-Scale Hybrid SCA-Transformer Language Model
 
-Mini-LLM causal code from scratch en PyTorch, entraîné sur un corpus texte francophone et capable de générer des complétions simples.
+A causal Mini-LLM coded from scratch in PyTorch, trained on a French 
+text corpus and capable of generating simple completions.
 
-Le projet a un objectif pédagogique : comprendre la chaîne complète d'un modèle de langage sans dépendre d'une grosse librairie de training. On y trouve :
+The project has a pedagogical objective: understand the full pipeline 
+of a language model without relying on a high-level training library. 
+It includes:
 
-- un Transformer causal implémenté à la main
-- implémentation d'une couche SCA
-- un tokenizer BPE entraîné sur le corpus
-- une boucle d'entraînement simple
-- un script de génération avec inférence récurrente 
+- a causal Transformer implemented from scratch
+- a full SCA layer implementation
+- a BPE tokenizer trained on the corpus
+- a simple training loop
+- a generation script with recurrent inference
 
-## Aperçu
+## Overview
 
-Le modèle apprend à prédire le token suivant à partir d'un contexte de longueur fixe. L'architecture repose sur :
+The model learns to predict the next token from a fixed-length context. 
+The architecture relies on:
 
-- embeddings de tokens
-- encodage positionnel rotatif RoPE
-- Grouped Query Attention GQA
-- feed-forward network SwiGLU
-- projection finale vers le vocabulaire
-- scheduler cosine pour le learning rate
+- token embeddings
+- rotary position embeddings (RoPE)
+- Grouped Query Attention (GQA)
+- SwiGLU feed-forward network
+- final projection to the vocabulary
+- cosine learning rate scheduler with linear warmup
 
-Le dépôt est volontairement compact pour rester lisible et modifiable.
+The repository is intentionally compact to remain readable and easy to modify.
 
 ## Structure
-
-```text
-Mini-llm/
-├── model/
-│   ├── attention.py
-│   ├── block.py
-│   ├── feedforward.py
-│   ├── norms.py
-│   ├── sca.py
-│   └── transformer.py
-├── data/
-│   └── prepare_data.py
-├── logs/
-│   ├── graph.py
-│   ├── metrics_A.csv
-│   ├── metrics_B.csv
-│   ├── metrics_C.csv
-│   └── metrics_final.csv
-├── tokenizer.py
-├── train.py
-├── generate.py
-├── README.md
-└── .gitignore
-```
+...
 
 ## Installation
 
-Ce projet suppose un environnement Python avec les dépendances suivantes :
+This project requires a Python environment with the following dependencies:
 
 ```bash
 pip install torch matplotlib tokenizers mwparserfromhell
 ```
 
-## Utilisation
+## Usage
 
-### Entraîner le tokenizer
+### Train the tokenizer
 
 ```bash
 python tokenizer.py
 ```
 
-### Entraîner le modèle
+### Train the model
 
 ```bash
 python train.py
 ```
 
-### Générer du texte
+### Generate text
 
 ```bash
 python generate.py
 ```
 
-Puis saisis un prompt, par exemple :
+Then enter a prompt, for example:
 
 ```text
 La meilleure ville de France est
 ```
 
-## Résultats 
-On a testé plusieurs ratio entre couche SCA et Transformer afin de comparer les performances à nombre de parametres égales.
+## Results
+
+We compared several SCA/Transformer ratios at equal parameter budget.
 
 | Run | Config | Params | Val. loss |
 | --- | --- | --- | --- |
@@ -92,21 +74,33 @@ On a testé plusieurs ratio entre couche SCA et Transformer afin de comparer les
 | B | Hybrid 2:1 | 52M | 3.124 |
 | C | Pure Transformer | 56M | 3.236 |
 
-## Ce que le projet fait bien
+Both hybrid models outperform the pure Transformer baseline at equal 
+parameter budget. The hybrid 1:1 achieves the best validation loss.
 
-- montrer clairement comment fonctionne un petit LLM causal
-- permettre des expérimentations rapides sur l'architecture et la génération
-- servir de base de travail pour progresser vers un modèle plus propre
+## What this project does well
 
-## Limites actuelles
+- clearly shows how a small causal LLM works end-to-end
+- allows quick experimentation on architecture and generation
+- serves as a working base to progress toward a cleaner model
 
+## Current limitations
 
+The model generates grammatically plausible French text but lacks 
+semantic coherence, which is expected at this scale with limited 
+parameters and training data.
 
-## Pistes d'amélioration
+## Future work
 
+- Instruction fine-tuning — fine-tune the final checkpoint on 
+  French instruction/response pairs
+- Longer context — increase context_length from 256 to 512 or 1024
+- Temporal decay in SCA — activate and measure the impact of d(t)
 
+## Project goal
 
-## Objectif du projet
+This repository is primarily a learning project:
 
-Ce dépôt vise surtout à apprendre :
-
+- Understand the structure of language models, how to train them 
+  and explore their limits
+- Discover the world of ML/DL research
+- Develop skills and knowledge in these areas
