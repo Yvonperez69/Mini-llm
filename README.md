@@ -1,26 +1,13 @@
 # Attention
 
-Mini-LLM causal code from scratch en PyTorch, entraîne sur un corpus texte francophone et capable de générer des complétions simples.
+Mini-LLM causal en PyTorch, entraine sur un corpus francophone et organise comme une pipeline locale simple:
 
-Le projet a un objectif pédagogique : comprendre la chaîne complète d'un modèle de langage sans dépendre d'une grosse librairie de training. On y trouve :
+1. extraire un corpus texte depuis Wikipedia
+2. entrainer un tokenizer BPE
+3. entrainer un Transformer causal
+4. generer du texte depuis un checkpoint
 
-- un Transformer causal implémenté à la main
-- un tokenizer BPE entraîné sur le corpus
-- un script d'extraction de texte depuis un dump Wikipédia
-- une boucle d'entraînement simple
-- un script de génération avec sampling
-
-## Aperçu
-
-Le modèle apprend à prédire le token suivant à partir d'un contexte de longueur fixe. L'architecture repose sur :
-
-- embeddings de tokens
-- encodage positionnel sinusoïdal
-- multi-head self-attention causale
-- feed-forward network
-- projection finale vers le vocabulaire
-
-Le dépôt est volontairement compact pour rester lisible et modifiable.
+Le projet reste compact et pedagogique, mais les scripts sont maintenant coherents entre eux: memes chemins par defaut, CLI explicite, checkpoint relancable, et selection de device propre.
 
 ## Structure
 
@@ -31,6 +18,7 @@ Le dépôt est volontairement compact pour rester lisible et modifiable.
 │   ├── block.py
 │   ├── feedforward.py
 │   └── transformer.py
+├── project_utils.py
 ├── extract_wiki_txt.py
 ├── tokenizer.py
 ├── train.py
@@ -38,44 +26,88 @@ Le dépôt est volontairement compact pour rester lisible et modifiable.
 └── tokenizer.json
 ```
 
+## Installation
+
+```bash
+pip install torch tokenizers mwparserfromhell
+```
+
 ## Pipeline
 
-### 1. Préparer le corpus
+### 1. Extraire le corpus
 
-`extract_wiki_txt.py` extrait du texte brut depuis un dump Wikipédia compressé `.bz2` en supprimant une partie du markup.
+Place un dump Wikipedia dans le repo, par exemple `frwiki-latest-pages-articles.xml.bz2`, puis lance:
 
-Le script écrit actuellement dans `wiki_fr.txt`, alors que `train.py` et `tokenizer.py` attendent un corpus dans `data/input.txt`.
+```bash
+python extract_wiki_txt.py
+```
 
-Deux options simples :
+Par defaut, le script lit `frwiki-latest-pages-articles.xml.bz2` et ecrit le corpus nettoye dans `data/input.txt`.
 
-1. Modifier `OUTPUT_FILE` dans `extract_wiki_txt.py` pour écrire directement dans `data/input.txt`
-2. Déplacer ou renommer le fichier extrait vers `data/input.txt`
+Options utiles:
 
-### 2. Entraîner le tokenizer
+```bash
+python extract_wiki_txt.py --input frwiki-latest-pages-articles.xml.bz2 --output data/input.txt --min-chars 200
+```
 
-`tokenizer.py` entraîne un tokenizer BPE byte-level avec `tokenizers` puis sauvegarde le résultat dans `tokenizer.json`.
+### 2. Entrainer le tokenizer
 
-Configuration actuelle :
+```bash
+python tokenizer.py
+```
+
+Options utiles:
+
+```bash
+python tokenizer.py --input data/input.txt --output tokenizer.json --vocab-size 16000 --min-frequency 2
+```
+
+### 3. Entrainer le modele
+
+```bash
+python train.py
+```
+
+Par defaut, l'entrainement:
+
+- charge `1%` du corpus en memoire
+- utilise `tokenizer.json`
+- sauvegarde le meilleur checkpoint dans `param/best_param.pt`
+- choisit automatiquement `cuda`, puis `mps`, puis `cpu`
+
+Exemple plus explicite:
+
+```bash
+python train.py --fraction 0.02 --context-length 256 --batch-size 8 --max-steps 5000
+```
+
+Reprendre un entrainement existant:
+
+```bash
+python train.py --resume --max-steps 2000
+```
+
+### 4. Generer du texte
+
+```bash
+python generate.py --prompt "La France est"
+```
+
+Ou en interactif:
+
+```bash
+python generate.py
+```
+
+Options utiles:
+
+```bash
+python generate.py --prompt "Paris est" --max-new-tokens 60 --temperature 0.8 --top-k 40
+```
+
+## Hyperparametres par defaut
 
 - `vocab_size = 30000`
-- `min_frequency = 2`
-- tokens spéciaux : `<pad>`, `<unk>`, `<bos>`, `<eos>`
-
-Pour une machine personnelle, un vocabulaire de `8000` à `16000` est souvent plus raisonnable.
-
-### 3. Entraîner le modèle
-
-`train.py` :
-
-- charge une fraction du corpus pour éviter de saturer la mémoire
-- tokenize le texte
-- crée un split train/validation
-- entraîne le Transformer en next-token prediction
-- sauvegarde le meilleur checkpoint dans `param/best_param.pt`
-
-Hyperparamètres actuels :
-
-- `TEXT_FRACTION = 0.01`
 - `d_model = 256`
 - `n_head = 8`
 - `n_layers = 6`
@@ -84,89 +116,19 @@ Hyperparamètres actuels :
 - `lr = 3e-4`
 - `max_steps = 30000`
 
-### 4. Générer du texte
-
-`generate.py` recharge le checkpoint et génère une complétion à partir d'un prompt fourni via l'entrée standard.
-
-La génération utilise :
-
-- `temperature`
-- `top_k`
-- `repetition_penalty`
-- arrêt sur `<eos>` si disponible
-
-## Installation
-
-Ce projet suppose un environnement Python avec les dépendances suivantes :
-
-```bash
-pip install torch matplotlib tokenizers mwparserfromhell
-```
-
-## Utilisation
-
-### Extraire un corpus
-
-Place un dump Wikipédia dans le dépôt, par exemple `frwiki-latest-pages-articles.xml.bz2`, puis lance :
-
-```bash
-python extract_wiki_txt.py
-```
-
-### Entraîner le tokenizer
-
-```bash
-python tokenizer.py
-```
-
-### Entraîner le modèle
-
-```bash
-python train.py
-```
-
-### Générer du texte
-
-```bash
-python generate.py
-```
-
-Puis saisis un prompt, par exemple :
-
-```text
-La meilleure ville de France est
-```
-
-## Ce que le projet fait bien
-
-- montrer clairement comment fonctionne un petit LLM causal
-- permettre des expérimentations rapides sur l'architecture et la génération
-- servir de base de travail pour progresser vers un modèle plus propre
-
 ## Limites actuelles
 
-- entraînement sur une petite fraction du corpus
+- seule une fraction du corpus est chargee en memoire
 - pas de dataloader streaming
 - pas de scheduler de learning rate
-- pas de gradient clipping
-- pas de seed globale pour la reproductibilité
-- pas d'instruction tuning ni de dataset conversationnel
+- pas encore de benchmark ou d'evaluation fixe par prompts
+- qualite encore limitee pour un usage assistant
 
-## Pistes d'amélioration
+## Suite logique
 
-- réduire et nettoyer davantage le corpus
-- utiliser un vocabulaire plus petit et mieux adapté
-- rendre l'entraînement plus robuste
-- ajouter des métriques et prompts d'évaluation fixes
-- fine-tuner ensuite sur des données instruction/chat
+Les prochains gains utiles sont:
 
-## Objectif du projet
-
-Ce dépôt vise surtout à apprendre :
-
-- comment fonctionne un Transformer causal
-- comment préparer un corpus
-- comment entraîner un tokenizer
-- comment entraîner puis utiliser un mini modèle de langage
-
-Si l'objectif est de construire un vrai assistant, ce repo est une bonne base de compréhension, pas encore un produit final.
+- rendre l'entrainement plus robuste encore, avec scheduler et logs persistants
+- comparer plusieurs tailles de vocabulaire et de `context_length`
+- ajouter une evaluation reproductible sur une liste de prompts fixes
+- passer ensuite a un fine-tuning instruction/chat

@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F 
-from norms import RMSNorm
+from model.norms import RMSNorm
 
 class SCA(nn.Module):
     def __init__(self, d_model, n_head_memory, n_head_query, spectral_sample, head_dim):
         super().__init__()
+        assert n_head_memory == n_head_query
         self.d_model = d_model
         self.head_dim = head_dim
         self.n_head_memory = n_head_memory
@@ -38,9 +39,9 @@ class SCA(nn.Module):
         k, s = torch.split(zmem, [self.n_head_memory*self.head_dim, self.n_head_memory], dim=-1)
         k = k.view(B, T, self.n_head_memory, self.head_dim)
         s = s.view(B, T, self.n_head_memory)
-        zquery = zquery.view(B, T, self.n_head_query, self.head_dim, self.spectral_sample, 2)
-        q_re = zquery[..., 0]
-        q_im = zquery[..., 1]
+        zquery = zquery.view(B, T, self.n_head_query, self.head_dim, 2, self.spectral_sample)
+        q_re = zquery[..., 0,:]
+        q_im = zquery[..., 1,:]
         
         # step 2
         d = 0 # distance-to-boundary function , pour l'instant on laisse à 0
@@ -61,9 +62,10 @@ class SCA(nn.Module):
         I_hat = I/(Z + 1e-8)
         
         # step 5
-        o_re = torch.sum(self.omega*(R_hat*q_re + I_hat*q_im),dim=-1)
-        o_im = torch.sum(self.omega*(I_hat*q_re - R_hat*q_im),dim=-1)
-        
+        omega = self.omega.unsqueeze(0).unsqueeze(0) # (1, 1, K', H, M)
+        o_re = torch.sum(omega*(R_hat*q_re + I_hat*q_im), dim=-1)
+        o_im = torch.sum(omega*(I_hat*q_re - R_hat*q_im), dim=-1)
+
         # step 6
             #GatedRMSNorm
         o = torch.cat([o_re, o_im], dim=-1)  # (B, T, K', H*2) → à reshaper en (B, T, 2*K'*H)
@@ -77,35 +79,3 @@ class SCA(nn.Module):
         o = self.w_out(o)
         
         return o + x #résidu
-
-
-sca = SCA(d_model=512, n_head_memory=8, n_head_query=8, spectral_sample=2, head_dim=64)
-x = torch.randn(2, 16, 512)
-out = sca(x)
-print(out.shape)  # doit donner torch.Size([2, 16, 512])
-
-# Test 1 — shape générale
-sca = SCA(d_model=512, n_head_memory=8, n_head_query=8, spectral_sample=2, head_dim=64)
-x = torch.randn(2, 16, 512)
-out = sca(x)
-assert out.shape == x.shape, "shape incorrecte"
-print("✅ Test shape OK")
-
-# Test 2 — causalité
-x = torch.randn(1, 10, 512)
-out1 = sca(x)
-x2 = x.clone()
-x2[:, 5:, :] = torch.randn(1, 5, 512)  # on modifie le futur
-out2 = sca(x2)
-assert torch.allclose(out1[:, :5, :], out2[:, :5, :], atol=1e-5), "causalité brisée"
-print("✅ Test causalité OK")
-
-# Test 3 — gradient
-x = torch.randn(2, 16, 512, requires_grad=True)
-out = sca(x)
-loss = out.sum()
-loss.backward()
-assert x.grad is not None, "pas de gradient sur x"
-for name, p in sca.named_parameters():
-    assert p.grad is not None, f"pas de gradient sur {name}"
-print("✅ Test gradient OK")

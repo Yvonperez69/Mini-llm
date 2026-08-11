@@ -11,16 +11,30 @@ build/
 # macOS
 .DS_Store
 
-# Data & checkpoints
-data/input.txt
-data/input_10pct.txt
-param/
-*.pt
-*.bz2
-wiki_fr.txt
-
 # VSCode
 .vscode/
+
+# Data (corpus bruts et splits — trop gros pour git)
+data/input.txt
+data/input_10pct.txt
+data/train.txt
+data/val.txt
+wiki_fr.txt
+*.bz2
+
+# Checkpoints
+param/
+*.pt
+
+# Logs
+runs/
+output.txt
+
+# Scratch
+test.py
+
+# Hors projet (exercices de cours) — retire la ligne si tu veux les versionner
+semaine_01_classification.html
 
 # Tokenizer (optionnel, à commenter si tu veux le versionner)
 # tokenizer.json

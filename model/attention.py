@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, n_head,n_kv_head, context_length, dropout=0.1):
+    def __init__(self, d_model, n_head, n_kv_head, context_length, dropout=0.1):
         super().__init__()
         
         assert d_model % n_head == 0

@@ -5,10 +5,10 @@ from model.feedforward import FeedForward
 from model.norms import RMSNorm
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_model,n_head, d_ff = None, dropout = 0.1):
+    def __init__(self, d_model, n_head, n_kv_head, context_length, d_ff = None, dropout = 0.1):
         super().__init__()
 
-        self.attn = MultiHeadAttention(d_model, n_head, dropout=dropout)
+        self.attn = MultiHeadAttention(d_model, n_head,n_kv_head,context_length, dropout=dropout)
         self.ffn = FeedForward(d_model, d_ff, dropout=dropout)
         self.norm1 = RMSNorm(d_model)
         self.norm2 = RMSNorm(d_model)
