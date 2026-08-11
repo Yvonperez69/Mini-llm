@@ -1,134 +1,127 @@
-# Attention
+# A Small-Scale Hybrid SCA-Transformer Language Model
 
-Mini-LLM causal en PyTorch, entraine sur un corpus francophone et organise comme une pipeline locale simple:
+A causal Mini-LLM coded from scratch in PyTorch, trained on a French 
+text corpus and capable of generating simple completions.
 
-1. extraire un corpus texte depuis Wikipedia
-2. entrainer un tokenizer BPE
-3. entrainer un Transformer causal
-4. generer du texte depuis un checkpoint
+The project has a pedagogical objective: understand the full pipeline 
+of a language model without relying on a high-level training library. 
+It includes:
 
-Le projet reste compact et pedagogique, mais les scripts sont maintenant coherents entre eux: memes chemins par defaut, CLI explicite, checkpoint relancable, et selection de device propre.
+- a causal Transformer implemented from scratch
+- a full SCA layer implementation
+- a BPE tokenizer trained on the corpus
+- a simple training loop
+- a generation script with recurrent inference
+
+## Overview
+
+The model learns to predict the next token from a fixed-length context. 
+The architecture relies on:
+
+- token embeddings
+- rotary position embeddings (RoPE)
+- Grouped Query Attention (GQA)
+- SwiGLU feed-forward network
+- final projection to the vocabulary
+- cosine learning rate scheduler with linear warmup
+
+The repository is intentionally compact to remain readable and easy to modify.
 
 ## Structure
 
 ```text
 .
+├── data/
+│   ├── prepare_data.py      # split du corpus en train.txt / val.txt
+│   └── split_articles.py    # découpage du dump en articles
 ├── model/
-│   ├── attention.py
-│   ├── block.py
-│   ├── feedforward.py
-│   └── transformer.py
-├── project_utils.py
-├── extract_wiki_txt.py
-├── tokenizer.py
-├── train.py
-├── generate.py
-└── tokenizer.json
+│   ├── attention.py         # Multi-Head Attention + GQA + RoPE
+│   ├── block.py             # bloc Transformer pre-norm
+│   ├── feedforward.py       # SwiGLU
+│   ├── hybrid_block.py      # SCA + bloc Transformer
+│   ├── norms.py             # RMSNorm
+│   ├── sca.py               # Spectral Cumulative Attention
+│   └── transformer.py       # empilement des couches (ratio SCA/Transformer)
+├── tokenizer.py             # entraînement du tokenizer BPE
+├── train.py                 # boucle d'entraînement
+├── generate.py              # génération récurrente depuis un checkpoint
+└── tokenizer.json           # tokenizer entraîné
 ```
+
+Les corpus (`data/input.txt`, `data/train.txt`, `data/val.txt`) et les 
+checkpoints (`param/*.pt`) ne sont pas versionnés — voir `.gitignore`.
 
 ## Installation
 
-```bash
-pip install torch tokenizers mwparserfromhell
-```
-
-## Pipeline
-
-### 1. Extraire le corpus
-
-Place un dump Wikipedia dans le repo, par exemple `frwiki-latest-pages-articles.xml.bz2`, puis lance:
+This project requires a Python environment with the following dependencies:
 
 ```bash
-python extract_wiki_txt.py
+pip install torch matplotlib tokenizers mwparserfromhell
 ```
 
-Par defaut, le script lit `frwiki-latest-pages-articles.xml.bz2` et ecrit le corpus nettoye dans `data/input.txt`.
+## Usage
 
-Options utiles:
-
-```bash
-python extract_wiki_txt.py --input frwiki-latest-pages-articles.xml.bz2 --output data/input.txt --min-chars 200
-```
-
-### 2. Entrainer le tokenizer
+### Train the tokenizer
 
 ```bash
 python tokenizer.py
 ```
 
-Options utiles:
-
-```bash
-python tokenizer.py --input data/input.txt --output tokenizer.json --vocab-size 16000 --min-frequency 2
-```
-
-### 3. Entrainer le modele
+### Train the model
 
 ```bash
 python train.py
 ```
 
-Par defaut, l'entrainement:
-
-- charge `1%` du corpus en memoire
-- utilise `tokenizer.json`
-- sauvegarde le meilleur checkpoint dans `param/best_param.pt`
-- choisit automatiquement `cuda`, puis `mps`, puis `cpu`
-
-Exemple plus explicite:
-
-```bash
-python train.py --fraction 0.02 --context-length 256 --batch-size 8 --max-steps 5000
-```
-
-Reprendre un entrainement existant:
-
-```bash
-python train.py --resume --max-steps 2000
-```
-
-### 4. Generer du texte
-
-```bash
-python generate.py --prompt "La France est"
-```
-
-Ou en interactif:
+### Generate text
 
 ```bash
 python generate.py
 ```
 
-Options utiles:
+Then enter a prompt, for example:
 
-```bash
-python generate.py --prompt "Paris est" --max-new-tokens 60 --temperature 0.8 --top-k 40
+```text
+La meilleure ville de France est
 ```
 
-## Hyperparametres par defaut
+## Results
 
-- `vocab_size = 30000`
-- `d_model = 256`
-- `n_head = 8`
-- `n_layers = 6`
-- `context_length = 128`
-- `batch_size = 8`
-- `lr = 3e-4`
-- `max_steps = 30000`
+We compared several SCA/Transformer ratios at equal parameter budget.
 
-## Limites actuelles
+| Run | Config | Params | Val. loss |
+| --- | --- | --- | --- |
+| A | Hybrid 1:1 | 55M | 3.109 |
+| B | Hybrid 2:1 | 52M | 3.124 |
+| C | Pure Transformer | 56M | 3.236 |
 
-- seule une fraction du corpus est chargee en memoire
-- pas de dataloader streaming
-- pas de scheduler de learning rate
-- pas encore de benchmark ou d'evaluation fixe par prompts
-- qualite encore limitee pour un usage assistant
+Both hybrid models outperform the pure Transformer baseline at equal 
+parameter budget. The hybrid 1:1 achieves the best validation loss.
 
-## Suite logique
+## What this project does well
 
-Les prochains gains utiles sont:
+- clearly shows how a small causal LLM works end-to-end
+- allows quick experimentation on architecture and generation
+- serves as a working base to progress toward a cleaner model
 
-- rendre l'entrainement plus robuste encore, avec scheduler et logs persistants
-- comparer plusieurs tailles de vocabulaire et de `context_length`
-- ajouter une evaluation reproductible sur une liste de prompts fixes
-- passer ensuite a un fine-tuning instruction/chat
+## Current limitations
+
+The model generates grammatically plausible French text but lacks 
+semantic coherence, which is expected at this scale with limited 
+parameters and training data.
+
+## Future work
+
+- Instruction fine-tuning — fine-tune the final checkpoint on 
+  French instruction/response pairs
+- Longer context — increase context_length from 256 to 512 or 1024
+- Temporal decay in SCA — activate and measure the impact of d(t)
+
+## Project goal
+
+This repository is primarily a learning project:
+
+- Understand the structure of language models, how to train them 
+  and explore their limits
+- Discover the world of ML/DL research
+- Develop skills and knowledge in these areas
