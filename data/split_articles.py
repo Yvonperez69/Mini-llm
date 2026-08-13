@@ -7,7 +7,7 @@ from tokenizers import Tokenizer
 train_path = Path(__file__).resolve().parent / "train.txt" 
 val_path = Path(__file__).resolve().parent  / "val.txt" 
 tokenizer_path = Path(__file__).resolve().parent.parent / "tokenizer.json" 
-
+filtered_train_path = Path(__file__).resolve().parent / "filtered_train.txt" 
 
 def split_articles(data_path) : 
     with open(data_path, "r", encoding='utf-8', errors='ignore') as f : 
@@ -46,4 +46,18 @@ print("max :", arr.max())
 for ctx_l in [256, 512, 1024] :
     print(f" proportion d'article restant avec context_length : {ctx_l}, \n {(arr <=ctx_l).mean():.1%} ") 
 
+def get_article(data_path,tokenizer, context_length=1024, limit= None) :
+    for i, article in enumerate(split_articles(data_path)) :
+        if limit is not None and i >= limit :
+            break
+        encodings = tokenizer.encode(article) 
+        if len(encodings.ids) >= context_length:
+            yield article
+
+def filtre_data(old_data_path, new_data_path, tokenizer) :
+    with open(new_data_path, "w", encoding='utf-8', errors='ignore') as f : 
+        for line in get_article(old_data_path, tokenizer) :
+            f.write(line + "\n")  
+
+filtre_data(train_path,filtered_train_path,tokenizer) 
 

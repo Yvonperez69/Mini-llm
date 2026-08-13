@@ -38,3 +38,4 @@ semaine_01_classification.html
 
 # Tokenizer (optionnel, à commenter si tu veux le versionner)
 # tokenizer.json
+**/*.txt
