@@ -28,10 +28,29 @@ class SCA(nn.Module):
         self.rms_norm = RMSNorm(2*n_head_query*head_dim)
 
     def forward(self, x, state = None):
+        """state = (R, I, Z, conv) ou None au début d'une séquence.
+
+        (R, I, Z) portent les sommes préfixes de l'étape 4, conv porte la fenêtre
+        glissante de la conv causale de l'étape 1. Les deux mémoires doivent
+        traverser la frontière entre deux appels pour que la génération
+        token par token donne les mêmes valeurs que la séquence entière.
+        """
         B, T, C = x.shape #batch size, sequence length, embedding dimension
+        R0 = I0 = Z0 = conv_state = None
+        if state is not None:
+            R0, I0, Z0, conv_state = state
+
         # step 1
         z = x.transpose(1, 2)
-        z = F.pad(z, (self.dw_conv.kernel_size[0] - 1, 0))
+        pad = self.dw_conv.kernel_size[0] - 1
+        # Padding de zéros seulement en début de séquence : là, "avant" est
+        # réellement vide. En cours de génération, "avant" ce sont les `pad`
+        # derniers pas de temps — sinon la conv perd son champ réceptif.
+        if conv_state is None:
+            z = F.pad(z, (pad, 0))
+        else:
+            z = torch.cat([conv_state, z], dim=-1)
+        new_conv_state = z[:, :, -pad:]       # fenêtre pour le prochain appel
         z = self.dw_conv(z).transpose(1, 2)  # conv sur d_model channels
         z = self.w_in(z)                      # projection après
         z = F.silu(z)
@@ -55,22 +74,26 @@ class SCA(nn.Module):
         i = alpha.unsqueeze(-1).unsqueeze(-1)*k.unsqueeze(-1)*torch.sin(phi)
 
         # step 4
-        if state is None :
-            # mode training
-            new_state = state
-            R = torch.cumsum(r,dim=1)
-            I = torch.cumsum(i,dim=1)
-            Z = torch.cumsum(alpha.unsqueeze(-1).unsqueeze(-1),dim=1)
-            R_hat = R/(Z + 1e-8)
-            I_hat = I/(Z + 1e-8)
-        else:
-            R, I, Z = state
-            new_R = R + r
-            new_I = I + i
-            new_Z = Z + alpha.unsqueeze(-1).unsqueeze(-1)
-            R_hat = new_R/(new_Z + 1e-8)
-            I_hat = new_I/(new_Z + 1e-8)
-            new_state = (new_R, new_I, new_Z)
+        # Une seule branche : cumsum donne les sommes préfixes à l'intérieur du
+        # chunk, l'état ajoute tout ce qui précède. Pour T=1 le cumsum est
+        # l'identité, donc le mode récurrent en est un cas particulier.
+        R = torch.cumsum(r, dim=1)
+        I = torch.cumsum(i, dim=1)
+        Z = torch.cumsum(alpha.unsqueeze(-1).unsqueeze(-1), dim=1)
+
+        if R0 is not None:
+            R = R + R0
+            I = I + I0
+            Z = Z + Z0
+
+        R_hat = R/(Z + 1e-8)
+        I_hat = I/(Z + 1e-8)
+
+        # Le total courant, toujours de longueur 1 quel que soit T.
+        # detach : à l'entraînement l'état n'est pas réutilisé, inutile de
+        # retenir le graphe autograd.
+        new_state = (R[:, -1:].detach(), I[:, -1:].detach(),
+                     Z[:, -1:].detach(), new_conv_state.detach())
 
         # step 5
         omega = self.omega.unsqueeze(0).unsqueeze(0) # (1, 1, K', H, M)

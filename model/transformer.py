@@ -39,21 +39,20 @@ class Transformer(nn.Module):
         return layers
 
     def forward(self, x, states=None):
+        """states : un état par couche, dans l'ordre des couches, ou None.
+
+        SCA et TransformerBlock partagent la signature (x, state) -> (out, state),
+        d'où l'absence de dispatch par type. Les états sont toujours renvoyés :
+        c'est le prefill du prompt qui les produit pour la génération.
+        """
         x = self.token_emb(x)
         x = self.dropout(x)
 
         new_states = []
-        sca_idx = 0
-        
-        for layer in self.layers:
-            if isinstance(layer, SCA):
-                state = states[sca_idx] if states is not None else None
-                x, new_state = layer(x, state)
-                new_states.append(new_state)
-                sca_idx += 1
-            else:
-                x = layer(x)
-        
+        for k, layer in enumerate(self.layers):
+            x, new_state = layer(x, None if states is None else states[k])
+            new_states.append(new_state)
+
         x = self.ln_f(x)
         x = self.output_layer(x)
-        return x, new_states if states is not None else None
+        return x, new_states

@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--vocab-size",
         type=int,
-        default=30000,
+        default=16000,
         help="Taille du vocabulaire cible",
     )
     parser.add_argument(
@@ -91,4 +91,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main() 
+    

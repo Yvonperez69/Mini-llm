@@ -17,6 +17,7 @@ def split_articles(data_path) :
 
 tokenizer = Tokenizer.from_file(str(tokenizer_path)) 
 vocab_size = tokenizer.get_vocab_size() 
+print(vocab_size) 
 
 def token_lengths(data_path, tokenizer,limit = None, batch_size=1000) :
     batch = [] 
@@ -37,7 +38,7 @@ def token_lengths(data_path, tokenizer,limit = None, batch_size=1000) :
             lengths.append(len(enc.ids)) 
     return lengths  
 
-lengths = token_lengths(train_path, tokenizer=tokenizer, limit=1)
+lengths = token_lengths(train_path, tokenizer=tokenizer)
 print("nombre d'article ",len(lengths)) 
 arr = np.array(lengths) 
 print("percentile : ", np.percentile(arr, [50, 75, 90, 99])) 

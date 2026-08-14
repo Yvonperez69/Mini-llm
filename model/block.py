@@ -13,12 +13,14 @@ class TransformerBlock(nn.Module):
         self.norm1 = RMSNorm(d_model)
         self.norm2 = RMSNorm(d_model)
 
-    def forward(self, x):
+    def forward(self, x, kv_cache = None):
         # Multi Head Attention
-        x = x + self.attn(self.norm1(x)) # residual connection et RMS Norm (pre-norm)
+        attn_out, new_kv_cache = self.attn(self.norm1(x), kv_cache)
+        x = x + attn_out # residual connection et RMS Norm (pre-norm)
 
         # Feed forward
         x = x + self.ffn(self.norm2(x)) # residual connection et RMS Norm (pre-norm)
 
-        return x
+        # même signature que SCA : (x, state) -> (out, new_state)
+        return x, new_kv_cache
 

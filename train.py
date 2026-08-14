@@ -37,7 +37,7 @@ def get_device():
 def compute_loss(model, idx, criterion):
     inputs = idx[:,:-1]
     targets = idx[:,1:]
-    logits = model(inputs)
+    logits, _ = model(inputs)
     batch_size, time_steps, vocab_size = logits.shape
     logits = logits.reshape(batch_size*time_steps, vocab_size)
     targets = targets.reshape(batch_size*time_steps)
@@ -103,6 +103,10 @@ def main():
     n_layers        = 8
     n_head          = 16
     n_kv_head       = 2
+    n_head_memory   = n_head
+    n_head_query    = n_head 
+    spectral_sample = 2 
+    head_dim        = d_model//n_head 
     context_length  = 256
     batch_size      = 16
     max_steps       = 20000
@@ -131,10 +135,10 @@ def main():
         n_kv_head=n_kv_head,
         n_layers=n_layers,
         context_length=context_length,
-        n_head_memory=n_head,
-        n_head_query=n_head,
-        spectral_sample=2,
-        head_dim=d_model//n_head,
+        n_head_memory=n_head_memory,
+        n_head_query=n_head_query,
+        spectral_sample=spectral_sample,
+        head_dim=head_dim,
         sca_ratio= sca_ratio
     ).to(device)
     criterion = nn.CrossEntropyLoss()
@@ -185,9 +189,14 @@ def main():
                             "d_model": d_model,
                             "d_ff": d_ff,
                             "n_head": n_head,
+                            "n_kv_head": n_kv_head, 
                             "n_layers": n_layers,
                             "sca_ratio": sca_ratio,
                             "context_length": context_length,
+                            "n_head_memory": n_head_memory,
+                            "n_head_query": n_head_query, 
+                            "spectral_sample": spectral_sample,
+                            "head_dim": head_dim, 
                             "best_val_loss": best_val_loss,
                             "step": step,
                             "tokenizer_path": str(TOKENIZER_PATH),

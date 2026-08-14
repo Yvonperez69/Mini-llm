@@ -6,7 +6,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 temperature = 0.4
 top_k = 40
-repetition_penalty = 1.5
+repetition_penalty = 1.3
 
 tokenizer = Tokenizer.from_file('tokenizer.json')
 
@@ -17,7 +17,7 @@ elif torch.backends.mps.is_available():
 else:
     device = torch.device("cpu")
 
-path = 'param/best_param_final.pt'
+path = 'param/best_param.pt'
 checkpoint = torch.load(path, map_location=device, weights_only=True)
 
 vocab_size     = checkpoint['vocab_size']
@@ -63,24 +63,25 @@ ids = torch.tensor(tokenizer.encode(prompt).ids).to(torch.long).unsqueeze(0).to(
 states = None
 
 with torch.no_grad():
-    _, states = model(ids, states= states)
+    logits, states = model(ids, states= states)
 
     for _ in range(max_new_tokens):
         # génération récurrente - un token à la fois
-        last_tokens = ids[:, -1:]
-        logits, states = model(last_tokens, states=states)
-        
         next_token_logits = logits[:, -1, :] / max(temperature, 1e-5)
 
-        for token_id in ids[0].tolist():
-            next_token_logits[:, token_id] /= repetition_penalty
+        for token_id in set(ids[0].tolist()) :
+            if next_token_logits[:, token_id] <=0.0 : 
+                next_token_logits[:, token_id] *= repetition_penalty
+            else : 
+                next_token_logits[:, token_id] /= repetition_penalty 
 
         topk_logits, topk_indices = torch.topk(next_token_logits, top_k, dim=-1)
         probs = torch.softmax(topk_logits, dim=-1)
         next_token = torch.multinomial(probs, num_samples=1)
         next_token_id = torch.gather(topk_indices, 1, next_token)
-        
         ids = torch.cat([ids, next_token_id], dim=1)
+
+        logits, states = model(next_token_id, states) 
 
         if eos_token_id is not None and next_token_id.item() == eos_token_id:
             break
