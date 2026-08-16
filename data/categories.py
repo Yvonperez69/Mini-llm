@@ -16,12 +16,13 @@ import csv
 import re
 from collections import Counter
 from pathlib import Path
+import json 
 
 DATA_DIR = Path(__file__).resolve().parent
 LOGS_DIR = DATA_DIR.parent / "logs"
 CORPUS_PATHS = [DATA_DIR / "filtered_train.txt", DATA_DIR / "filtered_val.txt"]
 FREQ_CSV = LOGS_DIR / "categories_freq.csv"
-
+data_w_lab = DATA_DIR / "train_w_lab.jsonl" 
 # Le marqueur lui-même. Tolère les variantes vues dans le dump :
 #   "Catégorie:" (1 017 091 occurrences), "Catégorie :" (88), "catégorie:" (983),
 #   "Categorie:" (5), et le "*" de puce wiki qui précède parfois le bloc.
@@ -108,6 +109,18 @@ def extract_categories(text: str) -> tuple[list[str], str]:
     cleaned = re.sub(r"\s+", " ", "".join(kept)).strip()
     return labels, cleaned
 
+def clean_text(text):
+    kept, cursor = [], 0
+    for m in CAT_RE.finditer(text):
+        # 1. On garde la prose AVANT le match
+        kept.append(text[cursor : m.start()])
+        # 2. On ignore le label (valide ou invalide)
+        cursor = m.end()
+    # 3. On ajoute le texte restant après le dernier match
+    kept.append(text[cursor:])
+    # 4. Nettoyage des espaces multiples
+    cleaned = re.sub(r"\s+", " ", "".join(kept)).strip()
+    return cleaned
 
 def strip_categories(text: str) -> str:
     return extract_categories(text)[1]
@@ -195,6 +208,23 @@ def load_mapping(path=Path(__file__).parent / "category_mapping.csv"):
             if row["macro"] != "IGNORE" and row["macro"] in LABEL2ID:
                 mapping[row["categorie"]] = row["macro"]
     return mapping
+# on fait un json avec le texte et le label 
+def load_data(data_path) :
+    with open(data_path, "r") as f : 
+        for line in f : 
+            yield line 
+
+def save_data_with_label(data_path) :
+    
+    mapping = load_mapping() 
+    with open(data_w_lab, "w") as f :
+        for article in load_data(data_path) :
+            cat = extract_categories(article) 
+            if cat[0] and cat[0][0] in mapping : 
+                print(len(cat[0])) 
+                label = mapping[cat[0][0]] 
+                f.write(json.dumps({"article": clean_text(article), "label": label}, ensure_ascii=False) + "\n") 
+            
 
 if __name__ == "__main__":
-    main()
+    save_data_with_label(CORPUS_PATHS[0]) 
