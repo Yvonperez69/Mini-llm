@@ -40,3 +40,4 @@ semaine_01_classification.html
 # tokenizer.json
 **/*.txt
 *.csv
+data/train_w_lab.jsonl
