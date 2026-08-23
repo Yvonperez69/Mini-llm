@@ -17,7 +17,7 @@ elif torch.backends.mps.is_available():
 else:
     device = torch.device("cpu")
 
-path = 'param/best_param.pt'
+path = 'param/best_param_ctx1024.pt'
 checkpoint = torch.load(path, map_location=device, weights_only=True)
 
 vocab_size     = checkpoint['vocab_size']
@@ -32,7 +32,7 @@ n_head_memory  = checkpoint.get('n_head_memory', n_head)
 n_head_query   = checkpoint.get('n_head_query', n_head)
 spectral_sample = checkpoint.get('spectral_sample', 2)
 head_dim       = checkpoint.get('head_dim', d_model // n_head)
-max_new_tokens = 35
+max_new_tokens = 50
 top_k = max(1, min(top_k, vocab_size))
 eos_token_id = tokenizer.token_to_id("<eos>")
 

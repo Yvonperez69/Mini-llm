@@ -92,11 +92,11 @@ def main():
     DATA_PATH       = Path("data/train.txt")
     VAL_PATH        = Path("data/val.txt")
     TOKENIZER_PATH  = Path("tokenizer.json")
-    CHECKPOINT_PATH = Path("param/best_param_final.pt")
-    LOG_PATH        = Path("logs/metrics_final.csv") # run A = 1:1, run B = 2:1, run C = transfo pur
+    CHECKPOINT_PATH = Path("param/best_param_ctx1024.pt")
+    LOG_PATH        = Path("logs/metrics_ctx1024.csv") # run ctx1024 = grad accum, context_length=1024
     device          = get_device()
 
-    writer = SummaryWriter(log_dir="runs/run_final")
+    writer = SummaryWriter(log_dir="runs/run_ctx1024")
 
     d_model         = 512
     d_ff            = 4*d_model
@@ -107,8 +107,11 @@ def main():
     n_head_query    = n_head 
     spectral_sample = 2 
     head_dim        = d_model//n_head 
-    context_length  = 256
-    batch_size      = 16
+    context_length  = 1024
+    batch_size      = 16   # batch effectif (après accumulation)
+    micro_batch_size = 2   # batch réel par forward/backward, limité par la VRAM
+    assert batch_size % micro_batch_size == 0
+    grad_accum_steps = batch_size // micro_batch_size
     max_steps       = 20000
     eval_interval   = 500
     eval_iters      = 100
@@ -123,8 +126,8 @@ def main():
     # 2. data
     tokenizer  = Tokenizer.from_file(str(TOKENIZER_PATH))
     vocab_size = tokenizer.get_vocab_size()
-    train_iter = get_data_iter(DATA_PATH, tokenizer, text_fraction, batch_size, context_length, device)
-    val_iter   = get_data_iter(VAL_PATH,  tokenizer, text_fraction, batch_size, context_length, device)
+    train_iter = get_data_iter(DATA_PATH, tokenizer, text_fraction, micro_batch_size, context_length, device)
+    val_iter   = get_data_iter(VAL_PATH,  tokenizer, text_fraction, micro_batch_size, context_length, device)
     
     # 3. model
     model = Transformer(
@@ -143,23 +146,36 @@ def main():
     ).to(device)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=lr_max, weight_decay=0.01)
-    
+
+    start_step = 0
+    if CHECKPOINT_PATH.exists():
+        checkpoint = torch.load(CHECKPOINT_PATH, map_location=device, weights_only=False)
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        best_val_loss = checkpoint["best_val_loss"]
+        start_step = checkpoint["step"] + 1
+        print(f"reprise depuis {CHECKPOINT_PATH} | step={start_step} | best_val_loss={best_val_loss:.4f}")
+
     print(
         f"device={device} | vocab_size={vocab_size} | text_fraction={text_fraction}"
     )
     print(
         f"config | d_model={d_model} n_head={n_head} n_layers={n_layers} "
-        f"context_length={context_length} batch_size={batch_size}"
+        f"context_length={context_length} batch_size={batch_size} "
+        f"micro_batch_size={micro_batch_size} grad_accum_steps={grad_accum_steps}"
     )
-    
+
     # 4. training loop
     model.train()
-    for step in range(max_steps):
-        idx = next(train_iter)
-        loss = compute_loss(model, idx, criterion)
+    for step in range(start_step, max_steps):
         optimizer.zero_grad()
-        loss.backward()
-        
+        loss_accum = 0.0
+        for _ in range(grad_accum_steps):
+            idx = next(train_iter)
+            micro_loss = compute_loss(model, idx, criterion)
+            (micro_loss / grad_accum_steps).backward()
+            loss_accum += micro_loss.item() / grad_accum_steps
+
         if grad_clip > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=grad_clip)
         
@@ -169,15 +185,15 @@ def main():
         
         optimizer.step()
         if (step + 1) % log_interval == 0:
-            writer.add_scalar("loss/train", loss.item(), step)
+            writer.add_scalar("loss/train", loss_accum, step)
             writer.add_scalar("lr", lr, step)
 
         should_eval = (step == 0) or ((step + 1) % eval_interval == 0)
 
         if should_eval:
-            val_loss = compute_val_loss(model, val_iter, criterion, eval_iters)
+            val_loss = compute_val_loss(model, val_iter, criterion, eval_iters * grad_accum_steps)
             writer.add_scalar("loss/val", val_loss, step)
-            log_metrics(LOG_PATH, step+1, loss.item(), val_loss, lr)
+            log_metrics(LOG_PATH, step+1, loss_accum, val_loss, lr)
         
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
