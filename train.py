@@ -35,13 +35,14 @@ def get_device():
     return torch.device("cpu")
 
 def compute_loss(model, idx, criterion):
-    inputs = idx[:,:-1]
-    targets = idx[:,1:]
-    logits, _ = model(inputs)
-    batch_size, time_steps, vocab_size = logits.shape
-    logits = logits.reshape(batch_size*time_steps, vocab_size)
-    targets = targets.reshape(batch_size*time_steps)
-    return criterion(logits, targets)
+    with torch.autocast(device= get_device().type, dtype= torch.bfloat16) :
+        inputs = idx[:,:-1]
+        targets = idx[:,1:]
+        logits, _ = model(inputs)
+        batch_size, time_steps, vocab_size = logits.shape
+        logits = logits.reshape(batch_size*time_steps, vocab_size)
+        targets = targets.reshape(batch_size*time_steps)
+        return criterion(logits, targets)
 
 def compute_val_loss(model, val_iter, criterion, eval_iters):
     model.eval()
