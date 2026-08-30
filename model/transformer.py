@@ -14,7 +14,7 @@ class TokenEmbedding(nn.Module):
 class Transformer(nn.Module):
     def __init__(self, vocab_size, d_model, n_head, n_kv_head, n_layers, context_length,
                  n_head_memory, n_head_query, spectral_sample, head_dim,
-                 sca_ratio=1, d_ff=None, dropout=0.1):
+                 sca_ratio=1, d_ff=None, dropout=0.1, with_attn=True):
         super().__init__()
         self.n_layers = n_layers
         self.dropout = nn.Dropout(dropout)
@@ -22,20 +22,22 @@ class Transformer(nn.Module):
         self.layers = nn.ModuleList(
             self._build_layers(sca_ratio, d_model, n_head, n_kv_head, context_length,
                                n_head_memory, n_head_query, spectral_sample, head_dim,
-                               d_ff, dropout)
+                               d_ff, dropout, with_attn)
         )
         self.ln_f = RMSNorm(d_model)
         self.output_layer = nn.Linear(d_model, vocab_size)
 
     def _build_layers(self, sca_ratio, d_model, n_head, n_kv_head, context_length,
-                      n_head_memory, n_head_query, spectral_sample, head_dim, d_ff, dropout):
+                      n_head_memory, n_head_query, spectral_sample, head_dim, d_ff, dropout, with_attn):
         layers = []
         for _ in range(self.n_layers):
             for _ in range(sca_ratio):
                 layers.append(SCA(d_model, n_head_memory, n_head_query,
                                   spectral_sample, head_dim))
-            layers.append(TransformerBlock(d_model, n_head, n_kv_head,
-                                           context_length, d_ff, dropout))
+            if with_attn : 
+                layers.append(TransformerBlock(d_model, n_head, n_kv_head,
+                                               context_length, d_ff, dropout))
+            else : continue 
         return layers
 
     def forward(self, x, states=None):
